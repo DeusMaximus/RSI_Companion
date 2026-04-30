@@ -96,17 +96,25 @@ export const MemberHit = z.object({
 });
 export type MemberHit = z.infer<typeof MemberHit>;
 
+// RSI now wraps the result array in a paginated envelope:
+// `data: { members: [...], hits: {...}, page, pagesize, pages_total }`.
+// We only consume `members`; the rest is ignored.
 const MemberAutocompleteResponse = z.object({
   success: z.number().int(),
   data: z
-    .array(
-      z.object({
-        id: z.coerce.number().int(),
-        nickname: z.string(),
-        displayname: z.string().nullable().optional(),
-        avatar: z.string().nullable().optional(),
-      }),
-    )
+    .object({
+      members: z
+        .array(
+          z.object({
+            id: z.coerce.number().int(),
+            nickname: z.string(),
+            displayname: z.string().nullable().optional(),
+            avatar: z.string().nullable().optional(),
+          }),
+        )
+        .nullable()
+        .optional(),
+    })
     .nullable()
     .optional(),
 });
@@ -137,7 +145,7 @@ export async function searchMembers(query: string): Promise<MemberHit[]> {
   });
   const parsed = MemberAutocompleteResponse.safeParse(raw);
   if (!parsed.success || parsed.data.success !== 1) return [];
-  return (parsed.data.data ?? []).map((m) => ({
+  return (parsed.data.data?.members ?? []).map((m) => ({
     id: m.id,
     nickname: m.nickname,
     displayname: m.displayname ?? '',
@@ -255,7 +263,7 @@ export async function searchPtuMembers(query: string): Promise<MemberHit[]> {
   });
   const parsed = MemberAutocompleteResponse.safeParse(raw);
   if (!parsed.success || parsed.data.success !== 1) return [];
-  return (parsed.data.data ?? []).map((m) => ({
+  return (parsed.data.data?.members ?? []).map((m) => ({
     id: m.id,
     nickname: m.nickname,
     displayname: m.displayname ?? '',
